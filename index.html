@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f7fb">
-  <title>Performance Observer Lab</title>
+  <title>Long Frame Lab</title>
   <style>
     :root {
       color-scheme: light;
@@ -14,37 +14,38 @@
       --paper: #fff;
       --canvas: #f5f7fb;
       --blue: #5268e8;
-      --blue-dark: #4055d3;
       --mint: #13a98b;
-      --amber: #d28a18;
       --rose: #d85d70;
       --shadow: 0 12px 32px rgba(27, 43, 79, .055);
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: var(--ink);
-      background: var(--canvas);
-      font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    button, input { font: inherit; }
-    button { cursor: pointer; }
-    .shell { max-width: 1180px; margin: 0 auto; padding: 44px 28px 72px; }
-    .topline { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-    .brand { display: flex; align-items: center; gap: 11px; color: #3c4a68; font-size: 12px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    body { margin: 0; color: var(--ink); background: var(--canvas); font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button { font: inherit; cursor: pointer; }
+    .shell { max-width: 1120px; margin: 0 auto; padding: 38px 26px 64px; }
+    .topline { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
+    .brand { display: flex; align-items: center; gap: 10px; color: #3c4a68; font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
     .brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; color: white; background: linear-gradient(145deg, #7e8cf3, #4c61dc); box-shadow: 0 5px 12px #5268e840; }
     .brand-mark svg { width: 19px; height: 19px; }
     .browser-badge { display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: white; font-size: 12px; }
-    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 3px #13a98b1b; }
+    .status-dot, .mini-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 3px #13a98b1b; }
     h1 { margin: 0; font-size: clamp(30px, 4vw, 43px); line-height: 1.12; letter-spacing: -.045em; }
-    .intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 27px; }
-    .intro p { max-width: 660px; margin: 12px 0 0; color: var(--muted); font-size: 15px; }
-    .intro-note { max-width: 250px; padding: 11px 14px; border: 1px solid #e3e7f7; border-radius: 12px; color: #5b6680; background: #f0f2ff; font-size: 12px; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 25px; }
+    .intro p { max-width: 710px; margin: 12px 0 0; color: var(--muted); font-size: 15px; }
+    .intro-note { max-width: 245px; padding: 11px 14px; border: 1px solid #e3e7f7; border-radius: 12px; color: #5b6680; background: #f0f2ff; font-size: 12px; }
     .intro-note strong { color: #4e5dce; }
+    .support-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .support-card, .card { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); box-shadow: var(--shadow); }
+    .support-card { padding: 16px 18px; }
+    .support-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .support-card h2 { margin: 0; font: 700 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .support-indicator { display: inline-flex; align-items: center; gap: 7px; color: #8994a8; font-size: 11px; font-weight: 650; white-space: nowrap; }
+    .support-indicator.yes { color: #13856f; }
+    .support-indicator.no { color: #ac5663; }
+    .support-indicator .mini-dot { background: currentColor; box-shadow: none; }
+    .support-card p { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
     .grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
     .main-column, .side-column { display: grid; gap: 18px; }
-    .card { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: var(--shadow); }
-    .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 17px 20px; border-bottom: 1px solid var(--line); }
+    .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 19px; border-bottom: 1px solid var(--line); }
     .card-title { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 14px; font-weight: 700; }
     .card-title .icon { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 8px; color: var(--blue); background: #eef0ff; }
     .card-title svg { width: 15px; height: 15px; }
@@ -52,33 +53,95 @@
     .button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 9px; color: #47536d; background: white; font-size: 12px; font-weight: 650; transition: .15s ease; }
     .button:hover { border-color: #c8d0e2; background: #fafbfe; }
     .button.primary { border-color: var(--blue); color: white; background: var(--blue); box-shadow: 0 3px 8px #5268e82b; }
-    .button.primary:hover { border-color: var(--blue-dark); background: var(--blue-dark); }
-    .button.danger { color: #aa4555; }
-    .button:disabled { opacity: .45; cursor: not-allowed; }
+    .button.primary:hover { border-color: #4055d3; background: #4055d3; }
     .button svg { width: 14px; height: 14px; }
+    .button:disabled { opacity: .5; cursor: not-allowed; }
     .observer-state { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; color: var(--mint); font-size: 11px; font-weight: 700; }
     .observer-state.paused { color: var(--muted); }
-    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: #fcfcfe; }
-    .filter-label { margin-right: 3px; color: #8791a4; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
-    .filter { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid #e8ebf2; border-radius: 7px; color: #67738a; background: white; font-size: 11px; }
-    .filter input { width: 12px; height: 12px; margin: 0; accent-color: var(--blue); }
-    .count { display: inline-grid; min-width: 19px; height: 19px; place-items: center; padding: 0 5px; border-radius: 6px; color: #73809a; background: #f1f3f8; font-size: 10px; font-variant-numeric: tabular-nums; }
-    .log-wrap { min-height: 285px; max-height: 470px; overflow: auto; }
+    .observer-state.paused .mini-dot { background: #96a0b1; box-shadow: none; }
+    .count { display: inline-grid; min-width: 20px; height: 20px; place-items: center; padding: 0 5px; border-radius: 6px; color: #73809a; background: #f1f3f8; font-size: 10px; font-variant-numeric: tabular-nums; }
+    .log-wrap { min-height: 300px; max-height: 650px; overflow: auto; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { position: sticky; top: 0; z-index: 1; padding: 10px 14px; color: #8a94a6; background: #fff; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
-    td { padding: 12px 14px; border-top: 1px solid #f0f2f6; color: #56627a; font-size: 12px; vertical-align: top; }
+    th { position: sticky; top: 0; z-index: 1; padding: 10px 13px; color: #8a94a6; background: #fff; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+    td { padding: 12px 13px; border-top: 1px solid #f0f2f6; color: #56627a; font-size: 12px; vertical-align: top; }
     tr:hover td { background: #fbfcff; }
-    th:first-child, td:first-child { padding-left: 20px; }
-    th:last-child, td:last-child { padding-right: 20px; }
-    .type-pill { display: inline-block; padding: 3px 7px; border-radius: 6px; color: #5363cd; background: #f0f1ff; font-size: 10px; font-weight: 700; white-space: nowrap; }
-    .type-pill.paint, .type-pill.largest-contentful-paint { color: #13846f; background: #e9f8f4; }
-    .type-pill.layout-shift { color: #b27510; background: #fff6e5; }
-    .type-pill.longtask, .type-pill.long-animation-frame { color: #bd4f62; background: #fff0f1; }
-    .entry-name { max-width: 280px; overflow: hidden; color: #313e59; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-    .entry-detail { max-width: 280px; margin-top: 3px; overflow: hidden; color: #919bad; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    th:first-child, td:first-child { padding-left: 19px; }
+    th:last-child, td:last-child { padding-right: 19px; }
+    .type-pill { display: inline-block; padding: 3px 7px; border-radius: 6px; color: #bd4f62; background: #fff0f1; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .entry-number { color: #313e59; font-weight: 650; }
     .numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .empty { display: grid; min-height: 285px; place-items: center; padding: 30px; text-align: center; }
-    .empty-icon { display: grid; width: 40px; height: 40px; margin: 0 auto 10px; place-items: center; border-radius: 13px; color: #8390a8; background: #f1f3f8; }
+    .inspect summary { color: #5363cd; font-size: 11px; font-weight: 650; cursor: pointer; list-style-position: inside; white-space: nowrap; }
+    .inspect-trigger { padding: 0; border: 0; color: #5363cd; background: transparent; font-size: 11px; font-weight: 650; white-space: nowrap; }
+    .inspect-trigger:hover { text-decoration: underline; }
+    #timeline-dialog { width: min(1100px, calc(100vw - 32px)); max-width: none; max-height: min(88vh, 900px); padding: 0; overflow: hidden; border: 1px solid #dfe4ed; border-radius: 16px; color: var(--ink); background: var(--paper); box-shadow: 0 24px 80px #17233b40; }
+    #timeline-dialog::backdrop { background: #17233b75; backdrop-filter: blur(2px); }
+    .dialog-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 20px; border-bottom: 1px solid var(--line); background: white; }
+    .dialog-title-wrap { min-width: 0; }
+    .dialog-title-wrap h2 { margin: 0; color: #35415a; font-size: 15px; }
+    .dialog-title-wrap p { margin: 3px 0 0; color: #8792a5; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .dialog-close { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; color: #58647b; background: white; font-size: 19px; line-height: 1; }
+    .dialog-close:hover { background: #f7f8fb; }
+    .dialog-body { max-height: calc(min(88vh, 900px) - 72px); padding: 20px; overflow: auto; }
+    .dialog-body .trace { padding: 18px; }
+    .dialog-body .trace-chart { min-width: 600px; }
+    .dialog-body pre { max-height: 42vh; }
+    .dialog-body .snapshot-title { margin-top: 20px; }
+    .trace { padding: 12px; border: 1px solid #e8ebf2; border-radius: 10px; background: #fff; }
+    .trace-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .trace-heading div { display: grid; gap: 2px; }
+    .trace-heading strong { color: #35415a; font-size: 12px; }
+    .trace-heading span, .trace-caption { color: #8792a5; font-size: 10px; }
+    .trace-heading b { color: #4e5dce; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .trace-stats { display: flex !important; flex-wrap: wrap; justify-content: end; gap: 6px; }
+    .trace-stats span { padding: 4px 7px; border: 1px solid #e9ecf3; border-radius: 6px; background: #f8f9fc; white-space: nowrap; }
+    .trace-chart { min-width: 510px; }
+    .trace-ruler { display: flex; justify-content: space-between; margin: 0 0 5px 124px; color: #9aa3b2; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .trace-lane { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 8px; min-height: 27px; align-items: center; }
+    .trace-label { display: grid; min-width: 0; gap: 1px; }
+    .trace-label strong { overflow: hidden; color: #526078; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+    .trace-label span { overflow: hidden; color: #9aa3b2; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .trace-track { position: relative; height: 17px; overflow: hidden; border-radius: 4px; background: repeating-linear-gradient(to right, #f3f5f9 0, #f3f5f9 calc(25% - 1px), #e7eaf1 calc(25% - 1px), #e7eaf1 25%); }
+    .trace-bar { position: absolute; top: 2px; display: flex; height: 13px; min-width: 2px; align-items: center; overflow: hidden; padding: 0 5px; border-radius: 2px; white-space: nowrap; }
+    .trace-bar-label { overflow: hidden; font-size: 9px; font-weight: 700; text-overflow: ellipsis; }
+    .trace-bar.frame { color: #322900; background: #ffd000; }
+    .trace-bar.script { color: #fff; background: #ef8500; }
+    .trace-bar.render { color: #fff; background: #df6d00; }
+    .trace-bar.layout { color: #fff; background: #bd6900; }
+    .trace-marker-row { position: relative; height: 36px; margin-left: 124px; border-top: 1px dashed #e5e9f1; }
+    .trace-marker { position: absolute; top: -1px; height: 32px; border-left: 1px solid #d87568; }
+    .trace-marker i { position: absolute; top: 0; left: -3px; width: 5px; height: 5px; border-radius: 50%; background: #d87568; }
+    .trace-marker.presented { border-color: #8066cf; }
+    .trace-marker.presented i { background: #8066cf; }
+    .trace-marker.user-input { z-index: 1; border-color: #6d778c; }
+    .trace-marker.user-input i { background: #6d778c; }
+    .trace-marker.render { border-color: #3d9b83; }
+    .trace-marker.render i { background: #3d9b83; }
+    .trace-marker.layout { border-color: #bd8300; }
+    .trace-marker.layout i { background: #bd8300; }
+    .trace-exec-marker { position: absolute; z-index: 1; top: 1px; height: 15px; border-left: 2px solid #37425a; }
+    .trace-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin: 8px 0 14px; }
+    .trace-legend-item { display: inline-flex; align-items: center; gap: 5px; color: #68758d; font-size: 10px; }
+    .trace-legend-item i { width: 7px; height: 7px; border-radius: 50%; background: #d87568; }
+    .trace-legend-item b { color: #46526b; font-variant-numeric: tabular-nums; }
+    .trace-legend-item.presented i { background: #8066cf; }
+    .trace-legend-item.user-input i { background: #6d778c; }
+    .trace-legend-item.render i { background: #3d9b83; }
+    .trace-legend-item.layout i { background: #bd8300; }
+    .trace-legend-item.execution i { border: 1px solid #37425a; border-radius: 0; background: #37425a; }
+    .script-details { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid #e8ebf2; }
+    .script-details h3 { margin: 0 0 2px; color: #526078; font-size: 11px; }
+    .script-detail { border: 1px solid #e8ebf2; border-radius: 8px; background: #fbfcfe; }
+    .script-detail summary { padding: 8px 10px; color: #485570; font-size: 10px; font-weight: 650; cursor: pointer; }
+    .script-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 0; padding: 0 10px 10px; }
+    .script-detail dl div { min-width: 0; }
+    .script-detail dt { color: #929bad; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+    .script-detail dd { margin: 2px 0 0; overflow-wrap: anywhere; color: #46526b; font-size: 10px; }
+    .trace-caption { margin: 8px 0 0; }
+    .trace-empty { margin: 0; color: #8792a5; font-size: 11px; }
+    .snapshot-title { margin: 13px 0 0; color: #68758d; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .inspect pre, #timeline-dialog pre { width: 100%; max-height: 340px; margin: 7px 0 2px; padding: 12px; overflow: auto; border: 1px solid #e8ebf2; border-radius: 9px; color: #35415a; background: #f8f9fc; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .empty { display: grid; min-height: 300px; place-items: center; padding: 30px; text-align: center; }
+    .empty-icon { display: grid; width: 42px; height: 42px; margin: 0 auto 11px; place-items: center; border-radius: 13px; color: #8390a8; background: #f1f3f8; }
     .empty-icon svg { width: 19px; height: 19px; }
     .empty strong { display: block; margin-bottom: 4px; color: #46526b; font-size: 13px; }
     .empty span { color: #8b95a7; font-size: 12px; }
@@ -90,112 +153,114 @@
     .stimulus-icon svg { width: 16px; height: 16px; }
     .stimulus-copy { flex: 1; min-width: 0; }
     .stimulus-copy strong { display: block; color: #3c4962; font-size: 12px; }
-    .stimulus-copy span { display: block; margin-top: 2px; color: #8a95a7; font-size: 10px; line-height: 1.35; }
+    .stimulus-copy span { display: block; margin-top: 2px; color: #8a95a7; font-size: 10px; line-height: 1.4; }
     .stimulus .button { flex: 0 0 auto; }
-    .support-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid #f0f2f6; color: #647088; font-size: 11px; }
-    .support-row:first-child { border-top: 0; }
-    .support-label { display: flex; align-items: center; gap: 7px; }
-    .support-label code { color: #4f5a73; font-size: 10px; }
-    .support-indicator { display: inline-flex; align-items: center; gap: 5px; color: #929bad; font-size: 10px; white-space: nowrap; }
-    .support-indicator.yes { color: #15947b; }
-    .mini-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .field-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .field-list li { padding-top: 9px; border-top: 1px solid #f0f2f6; color: #68758d; font-size: 11px; }
+    .field-list li:first-child { padding-top: 0; border-top: 0; }
+    .field-list code { color: #4f5a73; font-size: 10px; }
     .hint { display: flex; gap: 9px; padding: 12px; border-radius: 10px; color: #68758d; background: #f7f8fb; font-size: 11px; }
     .hint svg { flex: 0 0 15px; width: 15px; height: 15px; color: #8794ac; }
-    .shift-block { height: 54px; margin-top: 9px; padding: 10px 12px; border: 1px solid #d9e9e5; border-radius: 10px; color: #4a746c; background: #eff9f6; font-size: 12px; transition: height .18s ease; }
-    .shift-block.bump { height: 88px; }
-    .shift-block b { display: block; color: #2d776a; font-size: 11px; }
     .footer { margin-top: 20px; color: #8993a5; font-size: 11px; text-align: center; }
     .footer code { color: #67728a; }
-    @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr) 270px; } .intro-note { display: none; } }
-    @media (max-width: 700px) { .shell { padding: 25px 14px 46px; } .intro { align-items: start; } .grid { grid-template-columns: 1fr; } .side-column { grid-template-columns: 1fr; } .card-head { padding: 14px; } .toolbar { padding: 10px 14px; } th:nth-child(3), td:nth-child(3) { display: none; } .head-actions .button span { display: none; } }
+    @media (max-width: 850px) { .grid { grid-template-columns: minmax(0, 1fr) 270px; } .intro-note { display: none; } }
+    @media (max-width: 680px) { .shell { padding: 24px 13px 42px; } .support-grid, .grid { grid-template-columns: 1fr; } .card-head { padding: 13px; } .head-actions .button span { display: none; } th:nth-child(3), td:nth-child(3) { display: none; } .dialog-head, .dialog-body { padding: 14px; } #timeline-dialog { width: calc(100vw - 18px); max-height: 94vh; } .dialog-body { max-height: calc(94vh - 64px); } .trace-heading { align-items: start; flex-direction: column; } .trace-stats { justify-content: start; } .script-detail dl { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
   </style>
 </head>
 <body>
   <main class="shell">
     <div class="topline">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 13h4l2.2-7 4.1 12 2.2-7H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        Browser APIs · playground
-      </div>
-      <div class="browser-badge"><span class="status-dot"></span><span id="connection-label">Observer ready</span></div>
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 13h4l2.2-7 4.1 12 2.2-7H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Performance APIs · focused lab</div>
+      <div class="browser-badge"><span class="status-dot"></span><span id="connection-label">Checking observer support</span></div>
     </div>
-
     <section class="intro">
       <div>
-        <h1>Performance Observer Lab</h1>
-        <p>See what the browser measures as it happens. Watch performance entries stream in, then trigger a few real page events to explore the API.</p>
+        <h1>Long frame lab</h1>
+        <p>Inspect long animation frames and long tasks as the browser reports them. Expand any row to see the complete snapshot of the entry fields available in this browser.</p>
       </div>
-      <div class="intro-note"><strong>Quick start</strong><br>Keep this page open, then run a stimulus from the panel.</div>
+      <div class="intro-note"><strong>50 ms threshold</strong><br>Both entry types report work that crosses this threshold, with different timing boundaries.</div>
+    </section>
+
+    <section class="support-grid" aria-label="Entry type support">
+      <article class="support-card">
+        <div class="support-top"><h2>long-animation-frame</h2><span class="support-indicator" id="loaf-support"><i class="mini-dot"></i>Checking</span></div>
+        <p>A frame-level view including rendering timing and contributing scripts.</p>
+      </article>
+      <article class="support-card">
+        <div class="support-top"><h2>longtask</h2><span class="support-indicator" id="longtask-support"><i class="mini-dot"></i>Checking</span></div>
+        <p>An individual main-thread task and its browsing-context attribution.</p>
+      </article>
     </section>
 
     <div class="grid">
-      <section class="main-column" aria-label="Performance entries">
+      <section class="main-column" aria-label="Observed long frames and tasks">
         <article class="card">
           <header class="card-head">
-            <h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18V6m0 12h16M8 14l3-4 3 2 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Live entries <span class="count" id="total-count">0</span></h2>
+            <h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18V6m0 12h16M8 14l3-4 3 2 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Observed entries <span class="count" id="total-count">0</span></h2>
             <div class="head-actions">
               <span class="observer-state" id="state-label"><span class="mini-dot"></span>Listening</span>
               <button class="button" id="pause-button" type="button" aria-label="Pause observer"><svg viewBox="0 0 24 24" fill="none"><path d="M9 5v14M15 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Pause</span></button>
               <button class="button" id="clear-button" type="button" aria-label="Clear entries"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Clear</span></button>
             </div>
           </header>
-          <div class="toolbar" id="filters"><span class="filter-label">Show</span></div>
-          <div class="log-wrap" id="log-wrap">
-            <div class="empty" id="empty-state"><div><span class="empty-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 12 2-6h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Waiting for performance entries</strong><span>Entries will appear here as the browser reports them.</span></div></div>
+          <div class="log-wrap">
+            <div class="empty" id="empty-state"><div><span class="empty-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 12 2-6h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong id="empty-title">Waiting for long frames and tasks</strong><span id="empty-copy">Run a stimulus or interact with the page to generate entries.</span></div></div>
             <table id="entries-table" hidden>
-              <thead><tr><th>Type</th><th>Entry</th><th>Start time</th><th>Duration</th></tr></thead>
+              <thead><tr><th>Type</th><th>Start</th><th>Duration</th><th>Blocking</th><th>Inspect</th></tr></thead>
               <tbody id="entries-body"></tbody>
             </table>
           </div>
         </article>
-        <div class="hint"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5m0-8h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Some entries only appear when their event occurs. For example, <code>layout-shift</code> needs visible content to move, while <code>longtask</code> requires a task over 50 ms.</span></div>
+        <div class="hint"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5m0-8h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Support is detected separately for each type. If a browser does not expose an entry type, the page cannot create native entries for it.</span></div>
       </section>
 
       <aside class="side-column">
         <article class="card">
-          <header class="card-head"><h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v4m0 10v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M3 12h4m10 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Try a stimulus</h2></header>
+          <header class="card-head"><h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v4m0 10v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M3 12h4m10 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Generate work</h2></header>
           <div class="panel-body">
-            <p class="panel-copy">Trigger activity and watch the log respond.</p>
+            <p class="panel-copy">Use the same work to compare both observers.</p>
             <div class="stimulus">
               <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h7l-1 8 10-13h-7l1-7Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-              <div class="stimulus-copy"><strong>Block the main thread</strong><span>Busy-loop for 180 ms to create a long task.</span></div>
-              <button class="button" id="long-task-button" type="button">Run</button>
+              <div class="stimulus-copy"><strong>Block a click task</strong><span>Busy-loop for 180 ms inside this button's handler.</span></div>
+              <button class="button primary" id="long-task-button" type="button">Run</button>
             </div>
             <div class="stimulus">
               <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19h16M6 16V9m6 7V5m6 11v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-              <div class="stimulus-copy"><strong>Shift the page</strong><span>Change a block's height to test layout-shift.</span></div>
-              <button class="button" id="shift-button" type="button">Shift</button>
-            </div>
-            <div class="shift-block" id="shift-block"><b>Layout shift target</b>This block will grow and shrink.</div>
-            <div class="stimulus">
-              <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v14H4zM8 9h8M8 13h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-              <div class="stimulus-copy"><strong>Measure an operation</strong><span>Create named mark and measure entries.</span></div>
-              <button class="button" id="measure-button" type="button">Measure</button>
+              <div class="stimulus-copy"><strong>Block a render callback</strong><span>Busy-loop for 120 ms inside requestAnimationFrame.</span></div>
+              <button class="button" id="raf-task-button" type="button">Run</button>
             </div>
             <div class="stimulus">
-              <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16v12H4zM8 10h8m-8 4h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-              <div class="stimulus-copy"><strong>Load this page again</strong><span>Fetch the current document as a resource.</span></div>
-              <button class="button" id="resource-button" type="button">Fetch</button>
+              <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 6h14M5 12h14M5 18h14M8 4v4m8 2v4m-5 2v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+              <div class="stimulus-copy"><strong>Run three callback phases</strong><span>One click invokes three named 30 ms listeners.</span></div>
+              <button class="button" id="multi-script-button" type="button">Run</button>
             </div>
           </div>
         </article>
 
         <article class="card">
-          <header class="card-head"><h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5zM9 9h6m-6 3h6m-6 3h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Entry types</h2></header>
-          <div class="panel-body" id="support-list"><div class="support-row"><span class="support-label">Checking browser support…</span></div></div>
-        </article>
-
-        <article class="card">
+          <header class="card-head"><h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5zM9 9h6m-6 3h6m-6 3h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Fields captured</h2></header>
           <div class="panel-body">
-            <div class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v14H4zM8 9h8m-8 4h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Run from <code>localhost</code> for the most reliable results. Browser support and privacy settings affect which entry types are available.</span></div>
+            <ul class="field-list">
+              <li><code>long-animation-frame</code><br>Entry timestamps, <code>blockingDuration</code>, <code>renderStart</code>, <code>styleAndLayoutStart</code>, UI event time, paint timestamps, and script records.</li>
+              <li><code>longtask</code><br>Entry timestamps plus <code>attribution</code> container type, source, ID, and name.</li>
+              <li><code>toJSON()</code><br>Each expandable row also includes the browser's serialized entry snapshot.</li>
+            </ul>
           </div>
         </article>
+
+        <article class="card"><div class="panel-body"><div class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v14H4zM8 9h8m-8 4h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Run from <code>localhost</code> for the most reliable results. Entries only appear in browsers that support the corresponding type.</span></div></div></article>
       </aside>
     </div>
-    <footer class="footer">Built with <code>PerformanceObserver</code> · Entries are local to this page</footer>
+    <footer class="footer">Focused on <code>PerformanceLongAnimationFrameTiming</code> and <code>PerformanceLongTaskTiming</code></footer>
   </main>
-
+  <dialog id="timeline-dialog" aria-labelledby="timeline-dialog-title">
+    <header class="dialog-head">
+      <div class="dialog-title-wrap"><h2 id="timeline-dialog-title">Long animation frame</h2><p id="timeline-dialog-meta"></p></div>
+      <button class="dialog-close" id="timeline-dialog-close" type="button" aria-label="Close timeline">×</button>
+    </header>
+    <div class="dialog-body" id="timeline-dialog-content"></div>
+  </dialog>
   <script src="app.js"></script>
 </body>
 </html>

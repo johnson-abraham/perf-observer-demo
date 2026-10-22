@@ -1,111 +1,256 @@
 (() => {
-  const requestedTypes = [
-    "navigation", "paint", "resource", "mark", "measure", "longtask",
-    "layout-shift", "largest-contentful-paint", "first-input", "event",
-    "element", "long-animation-frame", "visibility-state"
+  const observedTypes = ["long-animation-frame", "longtask"];
+  const loafFields = [
+    "startTime", "duration", "name", "entryType", "renderStart",
+    "styleAndLayoutStart", "blockingDuration", "firstUIEventTimestamp",
+    "paintTime", "presentationTime"
   ];
+  const scriptFields = [
+    "startTime", "duration", "name", "entryType", "executionStart",
+    "forcedStyleAndLayoutDuration", "invoker", "invokerType", "pauseDuration",
+    "sourceCharPosition", "sourceFunctionName", "sourceURL", "windowAttribution",
+    "window"
+  ];
+  const attributionFields = ["containerType", "containerSrc", "containerId", "containerName"];
   const entries = [];
-  const counts = new Map();
-  const filters = new Map();
   const support = new Map();
-  const filtersEl = document.getElementById("filters");
-  const bodyEl = document.getElementById("entries-body");
-  const tableEl = document.getElementById("entries-table");
-  const emptyEl = document.getElementById("empty-state");
   let observer = null;
   let observing = false;
+  let nextEntryId = 1;
 
-  const prettyType = type => type === "paint" ? "paint" : type;
-  const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-  const number = value => Number.isFinite(value) ? `${value.toFixed(2)} ms` : "—";
-  const detailFor = entry => {
-    if (entry.entryType === "layout-shift") return `value ${Number(entry.value || 0).toFixed(4)}${entry.hadRecentInput ? " · recent input" : ""}`;
-    if (entry.entryType === "event" || entry.entryType === "first-input") return `interaction: ${entry.name || "event"}${entry.processingStart ? ` · processing ${number(entry.processingStart - entry.startTime)}` : ""}`;
-    if (entry.entryType === "resource") return entry.initiatorType ? `initiated by ${entry.initiatorType}` : "resource timing";
-    if (entry.entryType === "largest-contentful-paint" || entry.entryType === "element") return entry.element ? `${entry.element.tagName.toLowerCase()}${entry.element.id ? `#${entry.element.id}` : ""}` : "paint candidate";
-    if (entry.entryType === "navigation") return entry.name === location.href ? "document navigation" : entry.name;
-    if (entry.entryType === "longtask") return `attribution: ${entry.attribution?.[0]?.name || "unknown"}`;
-    return "";
-  };
-  const nameFor = entry => entry.name || (entry.entryType === "event" ? "interaction" : entry.entryType);
+  const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[char]));
+  const ms = value => Number.isFinite(value) ? `${value.toFixed(2)} ms` : "—";
 
-  function renderFilters() {
-    filtersEl.innerHTML = '<span class="filter-label">Show</span>';
-    requestedTypes.filter(type => support.get(type)).forEach(type => {
-      const label = document.createElement("label");
-      label.className = "filter";
-      label.innerHTML = `<input type="checkbox" checked data-filter="${escapeHtml(type)}"><span>${escapeHtml(prettyType(type))}</span><span class="count" data-count="${escapeHtml(type)}">0</span>`;
-      filtersEl.appendChild(label);
-      filters.set(type, true);
-    });
-    filtersEl.addEventListener("change", event => {
-      const input = event.target.closest("input[data-filter]");
-      if (!input) return;
-      filters.set(input.dataset.filter, input.checked);
-      renderEntries();
-    });
+  function percentage(value, duration) {
+    if (!Number.isFinite(value) || !Number.isFinite(duration) || duration <= 0) return 0;
+    return Math.min(100, Math.max(0, value / duration * 100));
   }
 
-  function renderSupport() {
-    const supportEl = document.getElementById("support-list");
-    supportEl.innerHTML = requestedTypes.map(type => {
-      const yes = support.get(type);
-      return `<div class="support-row"><span class="support-label"><code>${escapeHtml(type)}</code></span><span class="support-indicator ${yes ? "yes" : ""}"><i class="mini-dot"></i>${yes ? "Supported" : "Unavailable"}</span></div>`;
+  function timelineLane(label, detail, startOffset, laneDuration, frameDuration, variant, title, barLabel = "", submarkers = []) {
+    const left = percentage(startOffset, frameDuration);
+    const width = Math.min(100 - left, percentage(laneDuration, frameDuration));
+    const safeTitle = escapeHtml(title || `${label}: ${ms(laneDuration)}`);
+    const markerHtml = submarkers.filter(offset => Number.isFinite(offset) && offset >= 0 && offset <= frameDuration)
+      .map(offset => `<i class="trace-exec-marker" style="left:${percentage(offset, frameDuration)}%" title="Execution starts · ${ms(offset)}"></i>`).join("");
+    const bar = laneDuration > 0
+      ? `<span class="trace-bar ${variant}" style="left:${left}%;width:${width}%" title="${safeTitle}">${barLabel ? `<span class="trace-bar-label">${escapeHtml(barLabel)}</span>` : ""}</span>${markerHtml}`
+      : "";
+    return `<div class="trace-lane">
+      <div class="trace-label"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(detail)}</span></div>
+      <div class="trace-track">${bar}</div>
+    </div>`;
+  }
+
+  function timelineMarker(label, timestamp, entryStart, frameDuration, variant) {
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
+    const offset = timestamp - entryStart;
+    if (offset < 0 || offset > frameDuration) return "";
+    return { label, offset, variant };
+  }
+
+  function renderFrameTimeline(entry) {
+    const duration = Number(entry.duration);
+    const start = Number(entry.startTime);
+    if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(start)) {
+      return '<p class="trace-empty">Timeline unavailable for this entry.</p>';
+    }
+
+    const scripts = Array.from(entry.scripts || []);
+    const lanes = [timelineLane("Frame", "total duration", 0, duration, duration, "frame", `Frame duration ${ms(duration)}`, `Long animation frame · ${ms(duration)}`)];
+    let executionMarkerCount = 0;
+
+    scripts.forEach((script, index) => {
+      const scriptStart = Number(script.startTime);
+      const scriptDuration = Number(script.duration);
+      const offset = scriptStart - start;
+      const fn = script.sourceFunctionName || script.invoker || script.name || `Script ${index + 1}`;
+      const source = script.sourceURL ? String(script.sourceURL).split("/").pop() : "script";
+      const detail = `${ms(scriptDuration)} · ${source}`;
+      const executionStart = Number(script.executionStart);
+      const executionOffset = executionStart - start;
+      const executionMarkers = Number.isFinite(executionStart) && executionOffset >= offset && executionOffset <= offset + scriptDuration
+        ? [executionOffset]
+        : [];
+      executionMarkerCount += executionMarkers.length;
+      lanes.push(timelineLane(fn, detail, offset, scriptDuration, duration, "script", `${fn} — ${script.sourceURL || "source unavailable"} — ${ms(scriptDuration)}`, fn, executionMarkers));
+    });
+
+    const renderStart = Number(entry.renderStart);
+    const layoutStart = Number(entry.styleAndLayoutStart);
+    const paintTime = Number(entry.paintTime);
+    if (Number.isFinite(renderStart) && renderStart > 0 && Number.isFinite(paintTime) && paintTime >= renderStart) {
+      lanes.push(timelineLane("Render", "renderStart → paintTime", renderStart - start, paintTime - renderStart, duration, "render", `Rendering phase ${ms(paintTime - renderStart)}`));
+    }
+
+    const milestones = [
+      timelineMarker("User Input", Number(entry.firstUIEventTimestamp), start, duration, "user-input"),
+      timelineMarker("Render start", renderStart, start, duration, "render"),
+      timelineMarker("Style / layout start", layoutStart, start, duration, "layout"),
+      timelineMarker("Paint", paintTime, start, duration, "paint"),
+      timelineMarker("Presented", Number(entry.presentationTime), start, duration, "presented")
+    ].filter(Boolean);
+    const markers = milestones.map(({ label, offset, variant }) =>
+      `<span class="trace-marker ${variant}" style="left:${percentage(offset, duration)}%" title="${escapeHtml(`${label} · ${ms(offset)}`)}"><i></i></span>`
+    ).join("");
+    const milestoneLegend = milestones.map(({ label, offset, variant }) =>
+      `<span class="trace-legend-item ${variant}"><i></i>${escapeHtml(label)} <b>${ms(offset)}</b></span>`
+    ).join("");
+    const scriptDetails = scripts.map((script, index) => {
+      const fn = script.sourceFunctionName || script.invoker || `Script ${index + 1}`;
+      const scriptStart = Number(script.startTime);
+      const executionStart = Number(script.executionStart);
+      const sourcePosition = script.sourceCharPosition;
+      const formatDurationField = value => Number.isFinite(value) ? ms(value) : value;
+      const fields = [
+        ["Entry type", script.entryType],
+        ["Script name", script.name],
+        ["Start offset", Number.isFinite(scriptStart) ? ms(scriptStart - start) : "—"],
+        ["Execution start", Number.isFinite(executionStart) ? ms(executionStart - start) : "—"],
+        ["Invoker", script.invoker],
+        ["Invoker type", script.invokerType],
+        ["Source URL", script.sourceURL],
+        ["Source character", sourcePosition],
+        ["Forced style/layout", formatDurationField(script.forcedStyleAndLayoutDuration)],
+        ["Pause duration", formatDurationField(script.pauseDuration)],
+        ["Window attribution", script.windowAttribution]
+      ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+      return `<details class="script-detail"><summary>${escapeHtml(fn)} · ${ms(Number(script.duration))}</summary><dl>${fields.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></details>`;
     }).join("");
+    const scriptNote = scripts.length
+      ? `${scripts.length} script${scripts.length === 1 ? "" : "s"} reported`
+      : "No script records reported for this frame";
+
+    return `<section class="trace" aria-label="Long animation frame timeline">
+      <div class="trace-heading"><div><strong>Frame timeline</strong><span>${escapeHtml(scriptNote)}</span></div><div class="trace-stats"><span>Start <b>${ms(start)}</b></span><span>Blocking <b>${ms(Number(entry.blockingDuration))}</b></span></div></div>
+      <div class="trace-chart">
+        <div class="trace-ruler"><span>0 ms</span><span>${ms(duration * .25)}</span><span>${ms(duration * .5)}</span><span>${ms(duration * .75)}</span><span>${ms(duration)}</span></div>
+        ${lanes.join("")}
+        <div class="trace-marker-row" aria-label="Frame milestones">${markers}</div>
+      </div>
+      <div class="trace-legend">${milestoneLegend || '<span class="trace-caption">No frame milestones were reported.</span>'}${executionMarkerCount ? '<span class="trace-legend-item execution"><i></i>Script execution start</span>' : ""}</div>
+      ${scriptDetails ? `<section class="script-details"><h3>Script details</h3>${scriptDetails}</section>` : ""}
+      <p class="trace-caption">Milestone times are offsets within the frame. Script timing, invoker, source, pause, and forced layout data come from the browser entry.</p>
+    </section>`;
+  }
+
+  function readFields(source, fields) {
+    const result = {};
+    for (const field of fields) {
+      try {
+        const value = source[field];
+        if (value !== undefined) result[field] = value;
+      } catch (error) {
+        result[field] = `[unavailable: ${error.message}]`;
+      }
+    }
+    return result;
+  }
+
+  function callToJSON(value) {
+    try {
+      return typeof value.toJSON === "function" ? value.toJSON() : undefined;
+    } catch (error) {
+      return { serializationError: error.message };
+    }
+  }
+
+  function stringifySnapshot(value) {
+    const seen = new WeakSet();
+    return JSON.stringify(value, (_key, item) => {
+      if (item === window) return { type: "Window", isCurrentWindow: true };
+      if (item && typeof item === "object") {
+        if (Object.prototype.toString.call(item) === "[object Window]") {
+          return { type: "Window", isCurrentWindow: item === window };
+        }
+        if (seen.has(item)) return "[Circular reference]";
+        seen.add(item);
+      }
+      if (typeof item === "bigint") return item.toString();
+      return item;
+    }, 2);
+  }
+
+  function snapshotFor(entry) {
+    const snapshot = callToJSON(entry) || {};
+    if (entry.entryType === "long-animation-frame") {
+      Object.assign(snapshot, readFields(entry, loafFields));
+      snapshot.scripts = Array.from(entry.scripts || [], script => ({
+        ...readFields(script, scriptFields),
+        serialized: callToJSON(script)
+      }));
+    } else if (entry.entryType === "longtask") {
+      Object.assign(snapshot, readFields(entry, ["startTime", "duration", "name", "entryType"]));
+      snapshot.attribution = Array.from(entry.attribution || [], item => ({
+        ...readFields(item, attributionFields),
+        serialized: callToJSON(item)
+      }));
+    }
+    return snapshot;
+  }
+
+  function supportStatus(type, supported) {
+    support.set(type, supported);
+    const element = document.getElementById(type === "long-animation-frame" ? "loaf-support" : "longtask-support");
+    element.className = `support-indicator ${supported ? "yes" : "no"}`;
+    element.innerHTML = `<i class="mini-dot"></i>${supported ? "Supported" : "Unavailable"}`;
   }
 
   function addEntries(list) {
+    console.log(list);
     for (const entry of list) {
-      entries.unshift(entry);
-      counts.set(entry.entryType, (counts.get(entry.entryType) || 0) + 1);
+      entries.unshift({ id: nextEntryId++, entry, snapshot: snapshotFor(entry) });
     }
     if (entries.length > 250) entries.length = 250;
     renderEntries();
   }
 
   function renderEntries() {
-    document.getElementById("total-count").textContent = entries.length;
-    requestedTypes.forEach(type => {
-      const countEl = filtersEl.querySelector(`[data-count="${CSS.escape(type)}"]`);
-      if (countEl) countEl.textContent = counts.get(type) || 0;
-    });
-    const visible = entries.filter(entry => filters.get(entry.entryType) !== false);
-    emptyEl.hidden = visible.length > 0;
-    tableEl.hidden = visible.length === 0;
-    bodyEl.innerHTML = visible.slice(0, 100).map(entry => {
+    const table = document.getElementById("entries-table");
+    const empty = document.getElementById("empty-state");
+    const body = document.getElementById("entries-body");
+    const count = document.getElementById("total-count");
+    const openInspectors = new Set(Array.from(body.querySelectorAll("details[open]"), details => details.dataset.entryId));
+    count.textContent = entries.length;
+    empty.hidden = entries.length > 0;
+    table.hidden = entries.length === 0;
+    body.innerHTML = entries.slice(0, 100).map(({ id, entry, snapshot }) => {
       const type = escapeHtml(entry.entryType);
-      const detail = detailFor(entry);
-      return `<tr><td><span class="type-pill ${type}">${type}</span></td><td><div class="entry-name" title="${escapeHtml(nameFor(entry))}">${escapeHtml(nameFor(entry))}</div>${detail ? `<div class="entry-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</div>` : ""}</td><td class="numeric">${number(entry.startTime)}</td><td class="numeric">${number(entry.duration)}</td></tr>`;
+      const blocking = entry.entryType === "long-animation-frame" ? ms(entry.blockingDuration) : "—";
+      const json = escapeHtml(stringifySnapshot(snapshot));
+      const inspectControl = entry.entryType === "long-animation-frame"
+        ? `<button class="inspect-trigger" type="button" data-open-frame="${id}">Open timeline</button>`
+        : `<details class="inspect" data-entry-id="${id}"${openInspectors.has(String(id)) ? " open" : ""}><summary>All fields</summary><pre>${json}</pre></details>`;
+      return `<tr>
+        <td><span class="type-pill">${type}</span></td>
+        <td class="numeric">${ms(entry.startTime)}</td>
+        <td class="numeric"><span class="entry-number">${ms(entry.duration)}</span></td>
+        <td class="numeric">${blocking}</td>
+        <td>${inspectControl}</td>
+      </tr>`;
     }).join("");
   }
 
-  function startObservers(includeBuffered = true) {
-    if (!("PerformanceObserver" in window)) {
-      requestedTypes.forEach(type => support.set(type, false));
-      renderSupport();
-      document.getElementById("connection-label").textContent = "Not supported";
-      document.getElementById("state-label").innerHTML = '<span class="mini-dot"></span>Unavailable';
-      document.getElementById("state-label").classList.add("paused");
-      return;
-    }
-    const supported = new Set(PerformanceObserver.supportedEntryTypes || []);
-    requestedTypes.forEach(type => support.set(type, supported.has(type)));
-    observer = new PerformanceObserver(list => addEntries(list.getEntries()));
-    requestedTypes.filter(type => support.get(type)).forEach(type => {
-      try {
-        const options = { type };
-        if (includeBuffered) options.buffered = true;
-        if (type === "event") options.durationThreshold = 16;
-        observer.observe(options);
-      } catch (error) {
-        support.set(type, false);
-      }
-    });
-    renderSupport();
-    if (includeBuffered) renderFilters();
-    observing = requestedTypes.some(type => support.get(type));
-    updateObserverState();
-  }
+  document.getElementById("entries-body").addEventListener("click", event => {
+    const trigger = event.target.closest("[data-open-frame]");
+    if (!trigger) return;
+
+    const item = entries.find(({ id }) => id === Number(trigger.dataset.openFrame));
+    if (!item) return;
+
+    document.getElementById("timeline-dialog-title").textContent = "Long animation frame";
+    document.getElementById("timeline-dialog-meta").textContent = `Start ${ms(item.entry.startTime)} · Duration ${ms(item.entry.duration)} · Blocking ${ms(item.entry.blockingDuration)}`;
+    document.getElementById("timeline-dialog-content").innerHTML = `${renderFrameTimeline(item.entry)}<h3 class="snapshot-title">Entry fields</h3><pre>${escapeHtml(stringifySnapshot(item.snapshot))}</pre>`;
+    document.getElementById("timeline-dialog").showModal();
+  });
+
+  document.getElementById("timeline-dialog").addEventListener("click", event => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
+  document.getElementById("timeline-dialog-close").addEventListener("click", () => {
+    document.getElementById("timeline-dialog").close();
+  });
 
   function updateObserverState() {
     const button = document.getElementById("pause-button");
@@ -116,67 +261,81 @@
     button.setAttribute("aria-label", observing ? "Pause observer" : "Resume observer");
     label.innerHTML = `<span class="mini-dot"></span>${observing ? "Listening" : "Paused"}`;
     label.classList.toggle("paused", !observing);
-    document.getElementById("connection-label").textContent = observing ? "Observer ready" : "Observer paused";
+    document.getElementById("connection-label").textContent = observing ? "Observer listening" : "Observer paused";
+  }
+
+  function setUnsupportedMessage() {
+    if (observedTypes.some(type => support.get(type))) return;
+    document.getElementById("empty-title").textContent = "These entry types are unavailable here";
+    document.getElementById("empty-copy").textContent = "Try a browser that exposes long-animation-frame or longtask in supportedEntryTypes.";
+  }
+
+  function startObserver(includeBuffered = true) {
+    if (!("PerformanceObserver" in window)) {
+      observedTypes.forEach(type => supportStatus(type, false));
+      document.getElementById("connection-label").textContent = "PerformanceObserver unavailable";
+      document.getElementById("state-label").innerHTML = '<span class="mini-dot"></span>Unavailable';
+      document.getElementById("state-label").classList.add("paused");
+      setUnsupportedMessage();
+      return;
+    }
+
+    const supportedTypes = new Set(PerformanceObserver.supportedEntryTypes || []);
+    observedTypes.forEach(type => supportStatus(type, supportedTypes.has(type)));
+    observer = new PerformanceObserver(list => addEntries(list.getEntries()));
+
+    for (const type of observedTypes) {
+      if (!support.get(type)) continue;
+      try {
+        const options = { type };
+        if (includeBuffered) options.buffered = true;
+        observer.observe(options);
+      } catch (error) {
+        supportStatus(type, false);
+      }
+    }
+
+    observing = observedTypes.some(type => support.get(type));
+    updateObserverState();
+    setUnsupportedMessage();
+  }
+
+  function blockMainThread(duration) {
+    const endAt = performance.now() + duration;
+    while (performance.now() < endAt) { /* Deliberately block to generate an entry. */ }
   }
 
   document.getElementById("pause-button").addEventListener("click", () => {
-      if (observing) observer?.disconnect();
-    else {
-      // Reconnect without replaying entries already shown in the log.
-      startObservers(false);
-      return;
+    if (observing) {
+      observer?.disconnect();
+      observing = false;
+      updateObserverState();
+    } else {
+      // Resume without replaying entries already present in the log.
+      startObserver(false);
     }
-    observing = !observing;
-    updateObserverState();
   });
 
   document.getElementById("clear-button").addEventListener("click", () => {
     entries.length = 0;
-    counts.clear();
+    document.getElementById("empty-title").textContent = "Waiting for long frames and tasks";
+    document.getElementById("empty-copy").textContent = "Run a stimulus or interact with the page to generate entries.";
     renderEntries();
+    setUnsupportedMessage();
   });
 
-  document.getElementById("long-task-button").addEventListener("click", () => {
-    const endAt = performance.now() + 180;
-    while (performance.now() < endAt) { /* intentionally occupy the main thread */ }
+  document.getElementById("long-task-button").addEventListener("click", () => blockMainThread(180));
+  document.getElementById("raf-task-button").addEventListener("click", () => {
+    requestAnimationFrame(() => blockMainThread(120));
   });
 
-  document.getElementById("shift-button").addEventListener("click", event => {
-    const block = document.getElementById("shift-block");
-    block.classList.toggle("bump");
-    event.currentTarget.textContent = block.classList.contains("bump") ? "Reset" : "Shift";
-  });
+  const multiScriptButton = document.getElementById("multi-script-button");
+  function validatePhase() { blockMainThread(30); }
+  function calculatePhase() { blockMainThread(30); }
+  function finalizePhase() { blockMainThread(30); }
+  multiScriptButton.addEventListener("click", validatePhase);
+  multiScriptButton.addEventListener("click", calculatePhase);
+  multiScriptButton.addEventListener("click", finalizePhase);
 
-  document.getElementById("measure-button").addEventListener("click", () => {
-    const start = `demo-operation-${Date.now()}-start`;
-    const end = start.replace("-start", "-end");
-    performance.mark(start);
-    const until = performance.now() + 45;
-    while (performance.now() < until) { /* small, measurable operation */ }
-    performance.mark(end);
-    performance.measure("demo-operation", start, end);
-    performance.clearMarks(start);
-    performance.clearMarks(end);
-  });
-
-  document.getElementById("resource-button").addEventListener("click", async event => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    const oldText = button.textContent;
-    button.textContent = "Loading…";
-    try {
-      const url = new URL(location.href);
-      url.searchParams.set("perf-resource", String(Date.now()));
-      const response = await fetch(url, { cache: "no-store" });
-      await response.text();
-    } catch (error) {
-      // Opening this file directly can block fetch; use a local web server for this stimulus.
-      button.title = "Fetch is unavailable from file://. Serve this page from localhost to record a resource timing entry.";
-    } finally {
-      button.textContent = oldText;
-      button.disabled = false;
-    }
-  });
-
-  startObservers();
+  startObserver();
 })();
