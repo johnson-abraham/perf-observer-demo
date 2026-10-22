@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>Performance Observer Lab</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17233b;
+      --muted: #69758c;
+      --line: #e5e9f1;
+      --paper: #fff;
+      --canvas: #f5f7fb;
+      --blue: #5268e8;
+      --blue-dark: #4055d3;
+      --mint: #13a98b;
+      --amber: #d28a18;
+      --rose: #d85d70;
+      --shadow: 0 12px 32px rgba(27, 43, 79, .055);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .shell { max-width: 1180px; margin: 0 auto; padding: 44px 28px 72px; }
+    .topline { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .brand { display: flex; align-items: center; gap: 11px; color: #3c4a68; font-size: 12px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; color: white; background: linear-gradient(145deg, #7e8cf3, #4c61dc); box-shadow: 0 5px 12px #5268e840; }
+    .brand-mark svg { width: 19px; height: 19px; }
+    .browser-badge { display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: white; font-size: 12px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 3px #13a98b1b; }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 43px); line-height: 1.12; letter-spacing: -.045em; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 27px; }
+    .intro p { max-width: 660px; margin: 12px 0 0; color: var(--muted); font-size: 15px; }
+    .intro-note { max-width: 250px; padding: 11px 14px; border: 1px solid #e3e7f7; border-radius: 12px; color: #5b6680; background: #f0f2ff; font-size: 12px; }
+    .intro-note strong { color: #4e5dce; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+    .main-column, .side-column { display: grid; gap: 18px; }
+    .card { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: var(--shadow); }
+    .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 17px 20px; border-bottom: 1px solid var(--line); }
+    .card-title { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 14px; font-weight: 700; }
+    .card-title .icon { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 8px; color: var(--blue); background: #eef0ff; }
+    .card-title svg { width: 15px; height: 15px; }
+    .head-actions { display: flex; align-items: center; gap: 8px; }
+    .button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 9px; color: #47536d; background: white; font-size: 12px; font-weight: 650; transition: .15s ease; }
+    .button:hover { border-color: #c8d0e2; background: #fafbfe; }
+    .button.primary { border-color: var(--blue); color: white; background: var(--blue); box-shadow: 0 3px 8px #5268e82b; }
+    .button.primary:hover { border-color: var(--blue-dark); background: var(--blue-dark); }
+    .button.danger { color: #aa4555; }
+    .button:disabled { opacity: .45; cursor: not-allowed; }
+    .button svg { width: 14px; height: 14px; }
+    .observer-state { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; color: var(--mint); font-size: 11px; font-weight: 700; }
+    .observer-state.paused { color: var(--muted); }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: #fcfcfe; }
+    .filter-label { margin-right: 3px; color: #8791a4; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+    .filter { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid #e8ebf2; border-radius: 7px; color: #67738a; background: white; font-size: 11px; }
+    .filter input { width: 12px; height: 12px; margin: 0; accent-color: var(--blue); }
+    .count { display: inline-grid; min-width: 19px; height: 19px; place-items: center; padding: 0 5px; border-radius: 6px; color: #73809a; background: #f1f3f8; font-size: 10px; font-variant-numeric: tabular-nums; }
+    .log-wrap { min-height: 285px; max-height: 470px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { position: sticky; top: 0; z-index: 1; padding: 10px 14px; color: #8a94a6; background: #fff; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+    td { padding: 12px 14px; border-top: 1px solid #f0f2f6; color: #56627a; font-size: 12px; vertical-align: top; }
+    tr:hover td { background: #fbfcff; }
+    th:first-child, td:first-child { padding-left: 20px; }
+    th:last-child, td:last-child { padding-right: 20px; }
+    .type-pill { display: inline-block; padding: 3px 7px; border-radius: 6px; color: #5363cd; background: #f0f1ff; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .type-pill.paint, .type-pill.largest-contentful-paint { color: #13846f; background: #e9f8f4; }
+    .type-pill.layout-shift { color: #b27510; background: #fff6e5; }
+    .type-pill.longtask, .type-pill.long-animation-frame { color: #bd4f62; background: #fff0f1; }
+    .entry-name { max-width: 280px; overflow: hidden; color: #313e59; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .entry-detail { max-width: 280px; margin-top: 3px; overflow: hidden; color: #919bad; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .empty { display: grid; min-height: 285px; place-items: center; padding: 30px; text-align: center; }
+    .empty-icon { display: grid; width: 40px; height: 40px; margin: 0 auto 10px; place-items: center; border-radius: 13px; color: #8390a8; background: #f1f3f8; }
+    .empty-icon svg { width: 19px; height: 19px; }
+    .empty strong { display: block; margin-bottom: 4px; color: #46526b; font-size: 13px; }
+    .empty span { color: #8b95a7; font-size: 12px; }
+    .panel-body { padding: 16px 18px 18px; }
+    .panel-copy { margin: 0 0 13px; color: var(--muted); font-size: 12px; }
+    .stimulus { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid #f0f2f6; }
+    .stimulus:first-of-type { border-top: 0; }
+    .stimulus-icon { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border-radius: 9px; color: #6677df; background: #f0f2ff; }
+    .stimulus-icon svg { width: 16px; height: 16px; }
+    .stimulus-copy { flex: 1; min-width: 0; }
+    .stimulus-copy strong { display: block; color: #3c4962; font-size: 12px; }
+    .stimulus-copy span { display: block; margin-top: 2px; color: #8a95a7; font-size: 10px; line-height: 1.35; }
+    .stimulus .button { flex: 0 0 auto; }
+    .support-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid #f0f2f6; color: #647088; font-size: 11px; }
+    .support-row:first-child { border-top: 0; }
+    .support-label { display: flex; align-items: center; gap: 7px; }
+    .support-label code { color: #4f5a73; font-size: 10px; }
+    .support-indicator { display: inline-flex; align-items: center; gap: 5px; color: #929bad; font-size: 10px; white-space: nowrap; }
+    .support-indicator.yes { color: #15947b; }
+    .mini-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .hint { display: flex; gap: 9px; padding: 12px; border-radius: 10px; color: #68758d; background: #f7f8fb; font-size: 11px; }
+    .hint svg { flex: 0 0 15px; width: 15px; height: 15px; color: #8794ac; }
+    .shift-block { height: 54px; margin-top: 9px; padding: 10px 12px; border: 1px solid #d9e9e5; border-radius: 10px; color: #4a746c; background: #eff9f6; font-size: 12px; transition: height .18s ease; }
+    .shift-block.bump { height: 88px; }
+    .shift-block b { display: block; color: #2d776a; font-size: 11px; }
+    .footer { margin-top: 20px; color: #8993a5; font-size: 11px; text-align: center; }
+    .footer code { color: #67728a; }
+    @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr) 270px; } .intro-note { display: none; } }
+    @media (max-width: 700px) { .shell { padding: 25px 14px 46px; } .intro { align-items: start; } .grid { grid-template-columns: 1fr; } .side-column { grid-template-columns: 1fr; } .card-head { padding: 14px; } .toolbar { padding: 10px 14px; } th:nth-child(3), td:nth-child(3) { display: none; } .head-actions .button span { display: none; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topline">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 13h4l2.2-7 4.1 12 2.2-7H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        Browser APIs · playground
+      </div>
+      <div class="browser-badge"><span class="status-dot"></span><span id="connection-label">Observer ready</span></div>
+    </div>
+
+    <section class="intro">
+      <div>
+        <h1>Performance Observer Lab</h1>
+        <p>See what the browser measures as it happens. Watch performance entries stream in, then trigger a few real page events to explore the API.</p>
+      </div>
+      <div class="intro-note"><strong>Quick start</strong><br>Keep this page open, then run a stimulus from the panel.</div>
+    </section>
+
+    <div class="grid">
+      <section class="main-column" aria-label="Performance entries">
+        <article class="card">
+          <header class="card-head">
+            <h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18V6m0 12h16M8 14l3-4 3 2 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Live entries <span class="count" id="total-count">0</span></h2>
+            <div class="head-actions">
+              <span class="observer-state" id="state-label"><span class="mini-dot"></span>Listening</span>
+              <button class="button" id="pause-button" type="button" aria-label="Pause observer"><svg viewBox="0 0 24 24" fill="none"><path d="M9 5v14M15 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Pause</span></button>
+              <button class="button" id="clear-button" type="button" aria-label="Clear entries"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Clear</span></button>
+            </div>
+          </header>
+          <div class="toolbar" id="filters"><span class="filter-label">Show</span></div>
+          <div class="log-wrap" id="log-wrap">
+            <div class="empty" id="empty-state"><div><span class="empty-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 12 2-6h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Waiting for performance entries</strong><span>Entries will appear here as the browser reports them.</span></div></div>
+            <table id="entries-table" hidden>
+              <thead><tr><th>Type</th><th>Entry</th><th>Start time</th><th>Duration</th></tr></thead>
+              <tbody id="entries-body"></tbody>
+            </table>
+          </div>
+        </article>
+        <div class="hint"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5m0-8h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Some entries only appear when their event occurs. For example, <code>layout-shift</code> needs visible content to move, while <code>longtask</code> requires a task over 50 ms.</span></div>
+      </section>
+
+      <aside class="side-column">
+        <article class="card">
+          <header class="card-head"><h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v4m0 10v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M3 12h4m10 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Try a stimulus</h2></header>
+          <div class="panel-body">
+            <p class="panel-copy">Trigger activity and watch the log respond.</p>
+            <div class="stimulus">
+              <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h7l-1 8 10-13h-7l1-7Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <div class="stimulus-copy"><strong>Block the main thread</strong><span>Busy-loop for 180 ms to create a long task.</span></div>
+              <button class="button" id="long-task-button" type="button">Run</button>
+            </div>
+            <div class="stimulus">
+              <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19h16M6 16V9m6 7V5m6 11v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+              <div class="stimulus-copy"><strong>Shift the page</strong><span>Change a block's height to test layout-shift.</span></div>
+              <button class="button" id="shift-button" type="button">Shift</button>
+            </div>
+            <div class="shift-block" id="shift-block"><b>Layout shift target</b>This block will grow and shrink.</div>
+            <div class="stimulus">
+              <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v14H4zM8 9h8M8 13h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <div class="stimulus-copy"><strong>Measure an operation</strong><span>Create named mark and measure entries.</span></div>
+              <button class="button" id="measure-button" type="button">Measure</button>
+            </div>
+            <div class="stimulus">
+              <span class="stimulus-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16v12H4zM8 10h8m-8 4h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <div class="stimulus-copy"><strong>Load this page again</strong><span>Fetch the current document as a resource.</span></div>
+              <button class="button" id="resource-button" type="button">Fetch</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <header class="card-head"><h2 class="card-title"><span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5zM9 9h6m-6 3h6m-6 3h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Entry types</h2></header>
+          <div class="panel-body" id="support-list"><div class="support-row"><span class="support-label">Checking browser support…</span></div></div>
+        </article>
+
+        <article class="card">
+          <div class="panel-body">
+            <div class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v14H4zM8 9h8m-8 4h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Run from <code>localhost</code> for the most reliable results. Browser support and privacy settings affect which entry types are available.</span></div>
+          </div>
+        </article>
+      </aside>
+    </div>
+    <footer class="footer">Built with <code>PerformanceObserver</code> · Entries are local to this page</footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
